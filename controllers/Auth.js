@@ -1,5 +1,6 @@
 const bycrpt = require('bcrypt');
 const Userdata = require('../models/Userdata');
+const { sign } = require('jsonwebtoken');
 
 //signup routehandler
 exports.signup = async(req, res)=>{
@@ -48,5 +49,76 @@ exports.signup = async(req, res)=>{
             message: "user can not be registerd sucessfuly pleae try again latre",
         })
         
+    }
+}
+
+
+//login
+exports.login = async(req, res)=>{
+
+    try{
+
+        //fetch data from req body
+        const{email, password} = req.body;
+        //check email and password 
+        if(!email || !password){
+
+            return res.status(400).json({
+                success: false,
+                message: "please fill all the details"
+            });
+
+        }
+        //if registed
+        const user = await Userdata.findOne({email});
+        if(!user){
+            return res.status(401).json({
+                success:false,
+                meassage: "user is not register"
+            });
+        }
+        const payload = {
+            email: user.email,
+            id:user._id,
+            role:user.role,
+        }
+
+        require("dotenv").config();
+        //verify password and generate token
+        if(await bycrpt.compare(password, user.password)){
+            //password match
+            let token = jwt.sign(payload, process.env.JWT_SECRET,{
+                expiresin: "2h",
+            });
+
+            user.token = token,
+            user.password = undefined
+
+            const option = {
+                expires: new Date(Date.now()+2*24*24*60*60*1000),
+                httponly: true,
+            }
+
+            res.cookie("token", token, option).json({
+
+                success:true,
+                token,
+                user,
+                message:"user logged in successfully"
+
+            })
+
+        }
+        else{
+            //password do not match
+            return res.status(403).json({
+                success:false,
+                message: "password incorect"
+            });
+        }
+
+    }
+    catch(err){
+
     }
 }
